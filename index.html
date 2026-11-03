@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Parkplatz-Quest: Lernspiel zum Parkplatz-Schreiben für die Grundschule (Klasse 3/4).">
+<title>Parkplatz-Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@600;800;900&family=Andika:wght@400;700&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet — HUD bar on top, stage in the middle, controls below. Single dark "night parking lot" look by choice. */
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+:root {
+  --night: #17112e;      /* page ground */
+  --asphalt: #251d47;    /* panels */
+  --asphalt-2: #322863;  /* raised panels, keys */
+  --line: #f3efff;       /* parking lines + letters */
+  --mute: #a99fd6;       /* secondary text */
+  --pumpkin: #ff8a1f;    /* accent */
+  --crown: #ffc233;      /* crowns, stars */
+  --good: #4fe39a;
+  --bad: #ff5d73;
+  --f-display: "Luckiest Guy", "Arial Black", Impact, sans-serif;
+  --f-body: "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  --f-word: "Andika", "Comic Sans MS", "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+html { background: var(--night); }
+body {
+  background: var(--night);
+  background-image:
+    radial-gradient(circle at 85% 8%, rgba(255,194,51,.16) 0 60px, transparent 61px),
+    radial-gradient(circle at 15% 110%, rgba(255,138,31,.10), transparent 55%);
+  color: var(--line);
+  font-family: var(--f-body);
+  font-size: 17px;
+}
+.app {
+  min-height: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  padding-block: 18px 28px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px;
+}
+button { font-family: inherit; cursor: pointer; border: 0; color: inherit; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--crown); outline-offset: 3px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 400; letter-spacing: .02em; margin: 0; text-wrap: balance; }
+
+/* HUD */
+.hud { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--f-display); font-size: 26px; color: var(--pumpkin); margin-right: auto; display: flex; align-items: center; gap: 10px; }
+.brand svg { width: 34px; height: 34px; }
+.chip { background: var(--asphalt); border-radius: 999px; padding: 7px 14px; font-weight: 900; display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.chip.ghost { background: transparent; border: 2px solid var(--asphalt-2); }
+.iconbtn { background: var(--asphalt); border-radius: 999px; width: 42px; height: 42px; font-size: 20px; display: grid; place-items: center; }
+
+/* Screens */
+.screen { display: flex; flex-direction: column; gap: 18px; }
+.panel { background: var(--asphalt); border-radius: 22px; padding: 22px; }
+
+/* Start */
+.hero { text-align: center; padding: 30px 22px 26px; position: relative; overflow: hidden; }
+.hero h1 { font-size: clamp(40px, 8vw, 72px); color: var(--line); line-height: 1; }
+.hero h1 span { color: var(--pumpkin); }
+.hero p { color: var(--mute); max-width: 52ch; margin: 12px auto 0; font-size: 18px; }
+.demo { max-width: 460px; margin: 22px auto 6px; }
+.namerow { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+.namerow input { font: 800 20px var(--f-body); background: var(--night); color: var(--line); border: 3px solid var(--asphalt-2); border-radius: 14px; padding: 12px 16px; width: min(320px, 100%); }
+.big { font-family: var(--f-display); font-size: 24px; letter-spacing: .03em; background: var(--pumpkin); color: #1d1238; border-radius: 16px; padding: 14px 26px 10px; box-shadow: 0 5px 0 #b65808; transition: transform .08s; }
+.big:active { transform: translateY(3px); box-shadow: 0 2px 0 #b65808; }
+.big.alt { background: var(--asphalt-2); color: var(--line); box-shadow: 0 5px 0 #1b1440; }
+
+/* Map */
+.maphead { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.maphead h2 { font-size: 34px; }
+.maphead p { margin: 4px 0 0; color: var(--mute); }
+.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.lvl { background: var(--asphalt); border-radius: 20px; padding: 16px; text-align: left; display: flex; flex-direction: column; gap: 8px; position: relative; min-height: 168px; transition: transform .12s, background .12s; }
+.lvl:hover:not(:disabled) { transform: translateY(-3px); background: var(--asphalt-2); }
+.lvl .num { font-family: var(--f-display); color: var(--pumpkin); font-size: 15px; letter-spacing: .08em; }
+.lvl .emo { font-size: 38px; line-height: 1; }
+.lvl h3 { font-size: 21px; line-height: 1.1; }
+.lvl .sub { color: var(--mute); font-size: 14px; font-weight: 700; }
+.lvl .stars { margin-top: auto; font-size: 20px; letter-spacing: 2px; }
+.lvl:disabled { opacity: .45; cursor: not-allowed; }
+.lvl .lock { position: absolute; top: 14px; right: 14px; font-size: 20px; }
+.lvl.boss { background: linear-gradient(135deg, #3a1f55, #5a2533); }
+.teacher { align-self: flex-start; background: none; color: var(--mute); font-weight: 800; font-size: 14px; text-decoration: underline; padding: 4px 0; }
+
+/* Play */
+.playtop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.playtop h2 { font-size: 24px; margin-right: auto; }
+.hearts { font-size: 22px; letter-spacing: 2px; }
+.progress { height: 12px; background: var(--asphalt); border-radius: 99px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--pumpkin), var(--crown)); border-radius: 99px; transition: width .4s; }
+.stage { display: grid; grid-template-columns: 180px 1fr; gap: 22px; align-items: center; }
+.picture { background: var(--night); border-radius: 22px; aspect-ratio: 1; max-width: 100%; display: grid; place-items: center; font-size: 96px; position: relative; }
+.say { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); background: var(--pumpkin); color: #1d1238; border-radius: 999px; padding: 8px 16px; font-weight: 900; font-size: 16px; white-space: nowrap; box-shadow: 0 4px 0 #b65808; }
+.wordbox { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.crownrow { min-height: 34px; font-size: 26px; letter-spacing: 4px; }
+.word svg { width: 100%; height: auto; max-height: 190px; display: block; }
+.word.shake { animation: shake .4s; }
+@keyframes shake { 20%,60% { transform: translateX(-8px); } 40%,80% { transform: translateX(8px); } }
+.msg { min-height: 30px; font-weight: 800; font-size: 19px; }
+.msg.good { color: var(--good); } .msg.bad { color: var(--bad); } .msg.info { color: var(--crown); }
+
+.typer { display: flex; gap: 10px; flex-wrap: wrap; }
+.typer input { flex: 1 1 260px; min-width: 0; font: 700 30px var(--f-word); letter-spacing: .06em; background: var(--night); color: var(--line); border: 3px solid var(--asphalt-2); border-radius: 16px; padding: 10px 16px; }
+.keys { display: flex; gap: 8px; flex-wrap: wrap; }
+.key { background: var(--asphalt-2); border-radius: 12px; min-width: 50px; height: 50px; font: 700 24px var(--f-word); padding: 0 12px; }
+.key.hint { font: 800 16px var(--f-body); }
+.crownbtns { display: flex; gap: 10px; flex-wrap: wrap; }
+.crownbtns button { background: var(--asphalt-2); border-radius: 16px; padding: 12px 16px; font-size: 24px; min-width: 64px; }
+.crownbtns button b { display: block; font: 400 16px var(--f-display); color: var(--mute); }
+.l1word { font: 700 clamp(40px, 7vw, 64px) var(--f-word); letter-spacing: .02em; }
+
+/* Result */
+.result { text-align: center; padding: 34px 22px; }
+.result .bigstars { font-size: 64px; letter-spacing: 8px; margin: 10px 0; }
+.result h2 { font-size: 44px; color: var(--pumpkin); }
+.result p { color: var(--mute); font-size: 18px; margin: 6px 0; }
+.result .badge { display: inline-block; margin-top: 10px; background: var(--night); border: 3px dashed var(--crown); color: var(--crown); border-radius: 16px; padding: 10px 18px; font-family: var(--f-display); font-size: 22px; }
+.row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 22px; }
+
+/* SVG word colors */
+.pl { stroke: var(--line); }
+.pl.ok { stroke: var(--good); } .pl.bad { stroke: var(--bad); }
+.lt { fill: var(--line); font-family: var(--f-word); font-weight: 700; }
+.lt.ok { fill: var(--good); } .lt.bad { fill: var(--bad); } .lt.hint { fill: var(--crown); opacity: .85; }
+.fg { stroke: var(--mute); }
+.ah { fill: var(--line); } .ah.ok { fill: var(--good); } .ah.bad { fill: var(--bad); }
+
+.confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 20; }
+.confetti span { position: absolute; top: -40px; font-size: 26px; animation: fall 1.6s ease-in forwards; }
+@keyframes fall { to { transform: translateY(110vh) rotate(360deg); } }
+
+@media (max-width: 640px) {
+  .stage { grid-template-columns: 1fr; }
+  .picture { width: 150px; margin: 0 auto; font-size: 80px; }
+  .brand { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <header class="hud">
+    <div class="brand" aria-label="Parkplatz-Quest">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M8 50 L14 22 L24 34 L32 16 L40 34 L50 22 L56 50 Z" fill="#ffc233"/><rect x="8" y="50" width="48" height="6" rx="2" fill="#ff8a1f"/></svg>
+      Parkplatz-Quest
+    </div>
+    <span class="chip" id="hudName" hidden></span>
+    <span class="chip" title="Erfahrungspunkte">⚡ <span id="hudXp">0</span> XP</span>
+    <span class="chip" title="Gesammelte Sterne">⭐ <span id="hudStars">0</span></span>
+    <button class="iconbtn" id="soundBtn" aria-label="Ton an oder aus">🔊</button>
+  </header>
+  <main id="view"></main>
+</div>
+<div class="confetti" id="confetti" aria-hidden="true"></div>
+
+<script>
+// ---------------- Daten ----------------
+const LEVELS = [
+  { id: 1, name: "Silbenkönige", sub: "Wie viele Kronen?", emo: "👑", badge: "Kronen-Kenner", mode: "crowns",
+    words: [["Kürbis",["Kür","bis"],"🎃"],["Laterne",["La","ter","ne"],"🏮"],["Spielkonsole",["Spiel","kon","so","le"],"🎮"],["Hexenbesen",["He","xen","be","sen"],"🧹"],["Spuk",["Spuk"],"🏚️"],["Fledermaus",["Fle","der","maus"],"🦇"],["Gespenst",["Ge","spenst"],"👻"],["Vogelscheuche",["Vo","gel","scheu","che"],"🌾"],["Monster",["Mons","ter"],"👾"],["Zauberstab",["Zau","ber","stab"],"🪄"],["Herbst",["Herbst"],"🍁"],["Kastanie",["Kas","ta","ni","e"],"🌰"]] },
+  { id: 2, name: "Einer-Parkplätze", sub: "Ein Buchstabe pro Platz", emo: "🚗", badge: "Einparkprofi",
+    words: [["Nebel","b:N r:e | b:b r:e b:l","🌫️"],["Besen","b:B r:e | b:s r:e b:n","🧹"],["Monster","b:M r:o b:n b:s | g:t r:e b:r","👾"],["Roboter","b:R r:o | b:b r:o | g:t r:e b:r","🤖"],["Pirat","g:P r:i | b:r r:a g:t","🏴‍☠️"],["Laterne","b:L r:a | g:t r:e b:r | b:n r:e","🏮"],["Pilz","g:P r:i b:l g:z","🍄"],["Kerze","g:K r:e b:r | g:z r:e","🕯️"],["Rakete","b:R r:a | g:k r:e | g:t r:e","🚀"],["Hamster","g:H r:a b:m b:s | g:t r:e b:r","🐹"]] },
+  { id: 3, name: "Zweierkönige", sub: "au · ei · eu · ä · ö · ü", emo: "🦉", badge: "Doppelkönig",
+    words: [["Eule","r2:Eu | b:l r:e","🦉"],["Feuer","g:F r2:eu | r:e b:r","🔥"],["Kürbis","g:K r:ü b:r | b:b r:i b:s","🎃"],["Geister","b:G r2:ei b:s | g:t r:e b:r","👻"],["Fledermaus","g:F b:l r:e | b:d r:e b:r | b:m r2:au b:s","🦇"],["Zauberer","g:Z r2:au | b:b r:e | b:r r:e b:r","🧙"],["Käfer","g:K r:ä | g:f r:e b:r","🪲"],["Raupe","b:R r2:au | g:p r:e","🐛"]] },
+  { id: 4, name: "Buchstaben-Teams", sub: "Sch · ch · Pf · St · Sp", emo: "🗡️", badge: "Team-Captain",
+    words: [["Schwert","g3:Sch b:w r:e b:r g:t","🗡️"],["Drache","b:D b:r r:a | g2:ch r:e","🐉"],["Sturm","g2:St r:u b:r b:m","🌪️"],["Spuk","g2:Sp r:u g:k","🏚️"],["Pfeil","g2:Pf r2:ei b:l","🏹"],["Schal","g3:Sch r:a b:l","🧣"],["Knochen","g:K b:n r:o | g2:ch r:e b:n","🦴"],["Taschenlampe","g:T r:a | g3:sch r:e b:n | b:l r:a b:m | g:p r:e","🔦"],["Stern","g2:St r:e b:r b:n","⭐"],["Fisch","g:F r:i g3:sch","🐟"]] },
+  { id: 5, name: "Doppelparkplatz", sub: "Doppelt hält besser", emo: "🎮", badge: "Brückenbauer",
+    words: [["zocken","g:z r:o gdf:ck r:e b:n","🎮"],["Spinne","g2:Sp r:i bdf:nn r:e","🕷️"],["Blätter","b:B b:l r:ä gdf:tt r:e b:r","🍂"],["gewinnen","b:g r:e | b:w r:i bdf:nn r:e b:n","🏆"],["Jacke","b:J r:a gdf:ck r:e","🧥"],["Ritter","b:R r:i gdf:tt r:e b:r","⚔️"],["Nüsse","b:N r:ü gdf:ss r:e","🌰"],["Mütze","b:M r:ü gdf:tz r:e","🧢"],["Brille","b:B b:r r:i bdf:ll r:e","👓"],["Tasse","g:T r:a gdf:ss r:e","☕"]] },
+  { id: 6, name: "Thron, Freund, Zwilling", sub: "Lange Könige", emo: "🦷", badge: "Thronwächter",
+    words: [["Zahn","g:Z rl:ah b:n","🦷"],["Spiel","g2:Sp rl:ie b:l","🎲"],["Tee","g:T rll:ee","🍵"],["Uhr","rl:Uh b:r","⏰"],["Ohr","rl:Oh b:r","👂"],["Beere","b:B rll:ee | b:r r:e","🫐"],["Stiefel","g2:St rl:ie | g:f r:e b:l","👢"],["Schnee","g3:Sch b:n rll:ee","❄️"],["Fliege","g:F b:l rl:ie | b:g r:e","🪰"],["Kuh","g:K rl:uh","🐄"]] },
+  { id: 7, name: "Nachbar am Ende", sub: "Verlängern hilft!", emo: "🌙", badge: "Wort-Detektiv",
+    words: [["Mond","b:M r:o b:n b:d","🌙","Mon-de"],["Wald","b:W r:a b:l b:d","🌲","Wäl-der"],["Korb","g:K r:o b:r b:b","🧺","Kör-be"],["Grab","b:G b:r r:a b:b","🪦","Grä-ber"],["Sieg","b:S rl:ie b:g","🥇","Sie-ge"],["Burg","b:B r:u b:r b:g","🏰","Bur-gen"],["Gold","b:G r:o b:l b:d","🪙","gol-den"],["Pferd","g2:Pf r:e b:r b:d","🐴","Pfer-de"],["Hund","g:H r:u b:n b:d","🐶","Hun-de"],["Berg","b:B r:e b:r b:g","⛰️","Ber-ge"]] },
+  { id: 8, name: "Boss-Level", sub: "Alles gemischt", emo: "💀", badge: "Parkplatz-Legende", boss: true,
+    words: [["Gruselschloss","b:G b:r r:u | b:s r:e b:l | g3:sch b:l r:o gd:ss","🏰🦇"],["Zauberstab","g:Z r2:au | b:b r:e b:r | g2:st r:a b:b","🪄"],["Spielfeld","g2:Sp rl:ie b:l | g:f r:e b:l b:d","🏟️"],["Schatzkiste","g3:Sch r:a gd:tz | g:k r:i b:s | g:t r:e","💎"],["Geisterbahn","b:G r2:ei b:s | g:t r:e b:r | b:b rl:ah b:n","🎢👻"],["Kürbiskopf","g:K r:ü b:r | b:b r:i b:s | g:k r:o g2:pf","🎃"],["Gespensterwald","b:G r:e | g2:sp r:e b:n b:s | g:t r:e b:r | b:w r:a b:l b:d","👻🌲"]] },
+];
+const ROUNDS = 6;
+
+// ---------------- Speicher ----------------
+const KEY = "parkplatz-quest-v1";
+let save = { name: "", xp: 0, stars: {}, open: false, sound: true };
+try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) save = Object.assign(save, s); } catch (e) {}
+function persist() { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} }
+
+// ---------------- Ton ----------------
+let actx = null;
+function beep(seq) {
+  if (!save.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    let t = actx.currentTime;
+    seq.forEach(([f, d]) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = "square"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d); t += d * 0.9;
+    });
+  } catch (e) {}
+}
+const SFX = { good: () => beep([[660,.09],[880,.09],[1320,.16]]), bad: () => beep([[220,.15],[160,.22]]), win: () => beep([[523,.1],[659,.1],[784,.1],[1047,.3]]), tap: () => beep([[440,.04]]) };
+function speak(text) {
+  if (!save.sound || !("speechSynthesis" in window)) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "de-DE"; u.rate = 0.8;
+    const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith("de"));
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+// ---------------- Parkplatz-Zeichnung ----------------
+const W = { r:1, b:1, g:1, r2:1.7, g2:1.7, g3:2.3, bd:1.9, gd:1.9, bdf:1.9, gdf:1.9, rl:1.7, rll:1.9 };
+function parse(spec) { return spec.trim().split(/\s+/).map(s => s === "|" ? { fuge: true } : { t: s.split(":")[0], l: s.split(":")[1] }); }
+function letterTokens(spec) { return parse(spec).filter(t => !t.fuge); }
+function sylCount(spec) { return 1 + parse(spec).filter(t => t.fuge || (t.t && t.t.endsWith("df"))).length; }
+
+function wordSVG(spec, shown = [], states = []) {
+  const U = 60, GAP = .25, FUGE = .45, Y = 82;
+  const toks = parse(spec);
+  let tot = 0; toks.forEach((t, i) => { tot += t.fuge ? FUGE : W[t.t]; if (i < toks.length - 1) tot += GAP; });
+  const width = tot * U + 20, height = 110;
+  let x = 10, k = 0, out = "";
+  toks.forEach((t, i) => {
+    if (t.fuge) {
+      const cx = x + FUGE * U / 2;
+      out += `<line class="fg" x1="${cx}" y1="${Y-13}" x2="${cx}" y2="${Y+13}" stroke-width="3" stroke-linecap="round"/>`;
+      x += FUGE * U;
+    } else {
+      const w = W[t.t] * U, st = states[k] || "", cls = `pl ${st}`;
+      const sw = 6;
+      if (t.t.endsWith("d") || t.t.endsWith("df")) {
+        out += `<line class="${cls}" x1="${x}" y1="${Y-4}" x2="${x+w}" y2="${Y-4}" stroke-width="3.5"/><line class="${cls}" x1="${x}" y1="${Y+4}" x2="${x+w}" y2="${Y+4}" stroke-width="3.5"/>`;
+        if (t.t.endsWith("df")) out += `<line class="fg" x1="${x+w/2}" y1="${Y-13}" x2="${x+w/2}" y2="${Y+13}" stroke-width="3" stroke-linecap="round"/>`;
+      } else if (t.t === "rl" || t.t === "rll") {
+        const ys = t.t === "rl" ? [Y] : [Y-5, Y+5], th = t.t === "rl" ? sw : 3.5;
+        ys.forEach(yy => { out += `<line class="${cls}" x1="${x}" y1="${yy}" x2="${x+w-12}" y2="${yy}" stroke-width="${th}"/><path class="ah ${st}" d="M${x+w-14} ${yy-7} L${x+w} ${yy} L${x+w-14} ${yy+7} Z"/>`; });
+      } else {
+        out += `<line class="${cls}" x1="${x}" y1="${Y}" x2="${x+w}" y2="${Y}" stroke-width="${sw}" stroke-linecap="round"/>`;
+        const n = t.t.endsWith("3") ? 2 : t.t.endsWith("2") ? 1 : 0;
+        for (let j = 1; j <= n; j++) { const kx = x + w * j / (n + 1); out += `<line class="${cls}" x1="${kx}" y1="${Y-9}" x2="${kx}" y2="${Y+9}" stroke-width="3"/>`; }
+      }
+      const s = shown[k] || "";
+      if (s) out += `<text class="lt ${st}" x="${x + w/2}" y="${Y-14}" text-anchor="middle" font-size="46">${esc(s)}</text>`;
+      x += w; k++;
+    }
+    if (i < toks.length - 1) x += GAP * U;
+  });
+  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Parkplatzwort mit ${letterTokens(spec).length} Parkplätzen">${out}</svg>`;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+function split(spec, typed) {
+  const toks = letterTokens(spec); let p = 0;
+  return toks.map(t => { const s = typed.slice(p, p + t.l.length); p += t.l.length; return s; });
+}
+
+// ---------------- Ansichten ----------------
+const view = document.getElementById("view");
+function hud() {
+  document.getElementById("hudXp").textContent = save.xp;
+  document.getElementById("hudStars").textContent = Object.values(save.stars).reduce((a, b) => a + b, 0);
+  const n = document.getElementById("hudName");
+  n.hidden = !save.name; n.textContent = "🎮 " + save.name;
+  document.getElementById("soundBtn").textContent = save.sound ? "🔊" : "🔇";
+}
+document.getElementById("soundBtn").onclick = () => { save.sound = !save.sound; persist(); hud(); };
+
+function startScreen() {
+  view.innerHTML = `
+  <section class="screen">
+    <div class="panel hero">
+      <h1>Parkplatz-<span>Quest</span></h1>
+      <p>Jedes Wort hat Parkplätze. Hör dir das Wort an, schau die Parkplätze genau an und tippe das Wort. Schaffst du alle 7 Level und den Boss?</p>
+      <div class="demo">${wordSVG("g:K r:ü b:r | b:b r:i b:s", ["K","ü","r","b","i","s"])}</div>
+      <form class="namerow" id="nameForm">
+        <label for="nameInput" class="sr" hidden>Dein Spielername</label>
+        <input id="nameInput" maxlength="16" placeholder="Dein Spielername" value="${esc(save.name)}" autocomplete="off">
+        <button class="big" type="submit">Los geht's!</button>
+      </form>
+    </div>
+  </section>`;
+  document.getElementById("nameForm").onsubmit = e => {
+    e.preventDefault();
+    save.name = document.getElementById("nameInput").value.trim() || "Spieler";
+    persist(); SFX.tap(); mapScreen();
+  };
+}
+
+function unlocked(id) { return save.open || id === 1 || (save.stars[id - 1] || 0) > 0; }
+function starStr(n) { return "⭐".repeat(n) + "☆".repeat(3 - n); }
+
+function mapScreen() {
+  hud();
+  view.innerHTML = `
+  <section class="screen">
+    <div class="maphead">
+      <div><h2>Level-Karte</h2><p>Hallo ${esc(save.name)}! Jedes geschaffte Level öffnet das nächste.</p></div>
+      <button class="big alt" id="nameChange">Spieler wechseln</button>
+    </div>
+    <div class="levels">
+      ${LEVELS.map(L => {
+        const ok = unlocked(L.id), st = save.stars[L.id] || 0;
+        return `<button class="lvl ${L.boss ? "boss" : ""}" data-l="${L.id}" ${ok ? "" : "disabled"} aria-label="Level ${L.id}: ${L.name}">
+          ${ok ? "" : '<span class="lock" aria-hidden="true">🔒</span>'}
+          <span class="num">${L.boss ? "BOSS" : "LEVEL " + L.id}</span>
+          <span class="emo" aria-hidden="true">${L.emo}</span>
+          <h3>${L.name}</h3>
+          <span class="sub">${L.sub}</span>
+          <span class="stars" aria-label="${st} von 3 Sternen">${starStr(st)}</span>
+        </button>`;
+      }).join("")}
+    </div>
+    <button class="teacher" id="teacher">${save.open ? "Lehrkraft: Level wieder sperren" : "Lehrkraft: alle Level öffnen"}</button>
+  </section>`;
+  view.querySelectorAll(".lvl").forEach(b => b.onclick = () => { SFX.tap(); play(+b.dataset.l); });
+  document.getElementById("teacher").onclick = () => { save.open = !save.open; persist(); mapScreen(); };
+  document.getElementById("nameChange").onclick = () => startScreen();
+}
+
+// ---------------- Spiel ----------------
+let G = null;
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+function play(id) {
+  const L = LEVELS.find(l => l.id === id);
+  G = { L, list: shuffle(L.words).slice(0, Math.min(ROUNDS, L.words.length)), i: 0, hearts: 3, mistakes: 0, tries: 0, hint: false, streak: 0, gained: 0, done: false };
+  round();
+}
+
+function topBar() {
+  const L = G.L;
+  return `<div class="playtop">
+      <h2>${L.boss ? "Boss" : "Level " + L.id}: ${L.name}</h2>
+      <span class="chip ghost">Wort ${G.i + 1} / ${G.list.length}</span>
+      <span class="chip ghost" title="Serie">🔥 ${G.streak}</span>
+      <span class="hearts" aria-label="${G.hearts} Leben">${"❤️".repeat(G.hearts)}${"🖤".repeat(3 - G.hearts)}</span>
+      <button class="iconbtn" id="quit" aria-label="Zur Level-Karte">🗺️</button>
+    </div>
+    <div class="progress"><i style="width:${(G.i / G.list.length) * 100}%"></i></div>`;
+}
+
+function round() {
+  hud();
+  G.tries = 0; G.hint = false; G.done = false;
+  const w = G.list[G.i];
+  if (G.L.mode === "crowns") return roundCrowns(w);
+  const [word, spec, emo] = w;
+  view.innerHTML = `
+  <section class="screen">
+    ${topBar()}
+    <div class="panel">
+      <div class="stage">
+        <div class="picture"><span aria-hidden="true">${emo}</span><button class="say" id="say">🔊 Anhören</button></div>
+        <div class="wordbox">
+          <div class="crownrow" id="crowns" aria-live="polite"></div>
+          <div class="word" id="word">${wordSVG(spec)}</div>
+          <div class="msg" id="msg" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+      <form class="typer" id="typer">
+        <label for="inp" hidden>Wort eintippen</label>
+        <input id="inp" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="${word.length}" placeholder="Wort eintippen …">
+        <button class="big" type="submit" id="go">Prüfen</button>
+      </form>
+      <div class="keys">
+        ${["ä","ö","ü","ß"].map(k => `<button class="key" type="button" data-k="${k}">${k}</button>`).join("")}
+        <button class="key" type="button" data-k="back" aria-label="Löschen">⌫</button>
+        <button class="key hint" type="button" id="hintBtn">💡 Tipp: Kronen und Könige</button>
+      </div>
+    </div>
+  </section>`;
+  const inp = document.getElementById("inp");
+  const redraw = (states) => {
+    const shown = split(spec, inp.value);
+    if (G.hint) letterTokens(spec).forEach((t, k) => { if (t.t.startsWith("r") && !shown[k]) shown[k] = t.l; });
+    const hs = G.hint ? letterTokens(spec).map((t, k) => (t.t.startsWith("r") && !split(spec, inp.value)[k]) ? "hint" : "") : [];
+    document.getElementById("word").innerHTML = wordSVG(spec, shown, states || hs);
+  };
+  inp.oninput = () => { if (!G.done) redraw(); };
+  inp.focus();
+  document.getElementById("say").onclick = () => speak(word);
+  setTimeout(() => speak(word), 250);
+  document.getElementById("quit").onclick = mapScreen;
+  view.querySelectorAll(".key[data-k]").forEach(b => b.onclick = () => {
+    if (G.done) return;
+    if (b.dataset.k === "back") inp.value = inp.value.slice(0, -1);
+    else if (inp.value.length < word.length) inp.value += b.dataset.k;
+    redraw(); inp.focus();
+  });
+  document.getElementById("hintBtn").onclick = () => {
+    if (G.done || G.hint) return;
+    G.hint = true;
+    document.getElementById("crowns").textContent = "👑".repeat(sylCount(spec));
+    msg("info", `${sylCount(spec)} ${sylCount(spec) === 1 ? "Krone" : "Kronen"} – die Silbenkönige stehen schon da.`);
+    redraw(); inp.focus();
+  };
+  document.getElementById("typer").onsubmit = e => {
+    e.preventDefault();
+    if (G.done) return next();
+    check(word, spec, inp, redraw);
+  };
+}
+
+function msg(type, text) { const m = document.getElementById("msg"); m.className = "msg " + type; m.textContent = text; }
+
+function check(word, spec, inp, redraw) {
+  const typed = inp.value.trim();
+  if (!typed) { msg("info", "Tippe zuerst das Wort ein."); return; }
+  const exp = letterTokens(spec).map(t => t.l), got = split(spec, typed);
+  if (typed === word) return success(word, spec, inp);
+  if (typed.toLowerCase() === word.toLowerCase()) {
+    msg("info", word[0] === word[0].toUpperCase() ? "Fast! Das ist ein Nomen – schreib den Anfang groß." : "Fast! Dieses Wort schreibt man klein.");
+    return;
+  }
+  G.tries++; G.mistakes++; G.streak = 0; G.hearts--;
+  SFX.bad();
+  const states = exp.map((e, k) => (got[k] || "").toLowerCase() === e.toLowerCase() ? "ok" : "bad");
+  redraw(states);
+  const w = document.getElementById("word"); w.classList.remove("shake"); void w.offsetWidth; w.classList.add("shake");
+  view.querySelector(".hearts").innerHTML = "❤️".repeat(Math.max(0, G.hearts)) + "🖤".repeat(3 - Math.max(0, G.hearts));
+  if (G.hearts <= 0) return setTimeout(gameOver, 900);
+  if (G.tries >= 2) {
+    G.done = true;
+    document.getElementById("word").innerHTML = wordSVG(spec, exp, exp.map(() => "ok"));
+    msg("bad", `So wird es geschrieben: ${word}. Merk es dir für das nächste Mal!`);
+    G.list.push(G.list[G.i]); // Wort kommt am Ende noch einmal
+    nextBtn(inp);
+    return;
+  }
+  const n = states.filter(s => s === "bad").length;
+  let tip = typed.length !== word.length ? `Zähl die Parkplätze nochmal: Das Wort hat ${word.length} Buchstaben.` : `${n} ${n === 1 ? "Parkplatz ist" : "Parkplätze sind"} noch falsch besetzt. Schau auf die roten Stellen!`;
+  if (G.L.id === 7 && /[dgb]$/.test(word) && typed.slice(-1) !== word.slice(-1)) tip = "Tipp: Verlängere das Wort! Was hörst du am Ende?";
+  msg("bad", tip);
+}
+
+function success(word, spec, inp) {
+  G.done = true; G.streak++;
+  const pts = 10 + (G.tries === 0 && !G.hint ? 5 : 0) + Math.min(G.streak, 5);
+  G.gained += pts; save.xp += pts; persist(); hud();
+  SFX.good();
+  const exp = letterTokens(spec).map(t => t.l);
+  document.getElementById("word").innerHTML = wordSVG(spec, exp, exp.map(() => "ok"));
+  document.getElementById("crowns").textContent = "👑".repeat(sylCount(spec));
+  const praise = ["Stark!", "Perfekt eingeparkt!", "Volltreffer!", "Mega!", "Richtig!", "Level up!"][Math.floor(Math.random() * 6)];
+  const ext = G.list[G.i][3] ? ` Probe: ${G.list[G.i][3]}` : "";
+  msg("good", `${praise} +${pts} XP${G.streak >= 3 ? " · 🔥 " + G.streak + "er-Serie" : ""}.${ext}`);
+  nextBtn(inp);
+}
+
+function nextBtn(inp) {
+  const go = document.getElementById("go");
+  go.textContent = "Weiter ➜"; inp.readOnly = true; go.focus();
+}
+function next() { G.i++; if (G.i >= G.list.length) finish(); else round(); }
+
+function roundCrowns(w) {
+  const [word, syl, emo] = w;
+  view.innerHTML = `
+  <section class="screen">
+    ${topBar()}
+    <div class="panel">
+      <div class="stage">
+        <div class="picture"><span aria-hidden="true">${emo}</span><button class="say" id="say">🔊 Anhören</button></div>
+        <div class="wordbox">
+          <div class="crownrow" id="crowns"></div>
+          <div class="l1word" id="l1">${esc(word)}</div>
+          <div class="msg" id="msg" aria-live="polite">Nimm das Wort IN DIE HAND. Wie viele Kronen hat es?</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel crownbtns" id="cb">
+      ${[1,2,3,4,5].map(n => `<button data-n="${n}" aria-label="${n} Kronen">${"👑".repeat(Math.min(n,3))}${n > 3 ? "+" : ""}<b>${n}</b></button>`).join("")}
+    </div>
+  </section>`;
+  document.getElementById("say").onclick = () => speak(word);
+  setTimeout(() => speak(word), 250);
+  document.getElementById("quit").onclick = mapScreen;
+  view.querySelectorAll("#cb button").forEach(b => b.onclick = () => {
+    if (G.done) return;
+    const n = +b.dataset.n;
+    const showSyl = () => {
+      document.getElementById("l1").innerHTML = syl.map(s => esc(s).replace(/([aeiouäöü]+)/gi, '<u style="text-decoration-color:var(--crown);text-decoration-thickness:5px;text-underline-offset:8px">$1</u>')).join(' <span style="color:var(--mute)">·</span> ');
+      document.getElementById("crowns").textContent = "👑".repeat(syl.length);
+    };
+    if (n === syl.length) {
+      G.done = true; G.streak++;
+      const pts = 10 + (G.tries === 0 ? 5 : 0); G.gained += pts; save.xp += pts; persist(); hud();
+      SFX.good(); showSyl();
+      msg("good", `Richtig! ${syl.length} ${syl.length === 1 ? "Silbe" : "Silben"} – +${pts} XP`);
+      setTimeout(next, 1500);
+    } else {
+      G.tries++; G.mistakes++; G.hearts--; G.streak = 0; SFX.bad();
+      view.querySelector(".hearts").innerHTML = "❤️".repeat(Math.max(0, G.hearts)) + "🖤".repeat(3 - Math.max(0, G.hearts));
+      if (G.hearts <= 0) return setTimeout(gameOver, 700);
+      if (G.tries >= 2) { G.done = true; showSyl(); msg("bad", `Es sind ${syl.length}. Sprich mit: ${syl.join(" – ")}`); setTimeout(next, 2600); }
+      else msg("bad", "Noch nicht. Klatsch das Wort langsam mit!");
+    }
+  });
+}
+
+function finish() {
+  const L = G.L, st = G.mistakes === 0 ? 3 : G.mistakes <= 2 ? 2 : 1;
+  const before = save.stars[L.id] || 0;
+  save.stars[L.id] = Math.max(before, st); persist(); hud();
+  SFX.win(); confetti();
+  const nxt = LEVELS.find(l => l.id === L.id + 1);
+  view.innerHTML = `
+  <section class="screen">
+    <div class="panel result">
+      <h2>${L.boss ? "Boss besiegt!" : "Level geschafft!"}</h2>
+      <div class="bigstars" aria-label="${st} von 3 Sternen">${starStr(st)}</div>
+      <p>${G.mistakes === 0 ? "Ohne einen einzigen Fehler!" : G.mistakes + (G.mistakes === 1 ? " Fehler" : " Fehler") + " – nochmal spielen für mehr Sterne?"}</p>
+      <p>+${G.gained} XP</p>
+      <div class="badge">🏅 ${L.badge}</div>
+      <div class="row">
+        <button class="big alt" id="again">Nochmal</button>
+        ${nxt ? `<button class="big" id="nextL">Weiter zu ${nxt.boss ? "Boss" : "Level " + nxt.id}</button>` : `<button class="big" id="map">Zur Karte</button>`}
+      </div>
+    </div>
+  </section>`;
+  document.getElementById("again").onclick = () => play(L.id);
+  const nb = document.getElementById("nextL"); if (nb) nb.onclick = () => play(nxt.id);
+  const mb = document.getElementById("map"); if (mb) mb.onclick = mapScreen;
+}
+
+function gameOver() {
+  view.innerHTML = `
+  <section class="screen">
+    <div class="panel result">
+      <h2>Game over</h2>
+      <div class="bigstars" aria-hidden="true">🖤🖤🖤</div>
+      <p>Alle Leben sind weg. Kein Problem – jeder Profi übt!</p>
+      <p>Tipp: Nutze den 💡-Knopf und schau genau auf die Form der Parkplätze.</p>
+      <div class="row">
+        <button class="big" id="again">Nochmal versuchen</button>
+        <button class="big alt" id="map">Zur Karte</button>
+      </div>
+    </div>
+  </section>`;
+  document.getElementById("again").onclick = () => play(G.L.id);
+  document.getElementById("map").onclick = mapScreen;
+}
+
+function confetti() {
+  const c = document.getElementById("confetti"); c.innerHTML = "";
+  const e = ["👑","⭐","🎃","🍂","✨"];
+  for (let i = 0; i < 28; i++) {
+    const s = document.createElement("span");
+    s.textContent = e[i % e.length];
+    s.style.left = Math.random() * 100 + "vw";
+    s.style.animationDelay = Math.random() * .6 + "s";
+    c.appendChild(s);
+  }
+  setTimeout(() => c.innerHTML = "", 2600);
+}
+
+// ---------------- Start ----------------
+if ("speechSynthesis" in window) { try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => {}; } catch (e) {} }
+hud();
+save.name ? mapScreen() : startScreen();
+</script>
+</body>
+</html>
